@@ -153,11 +153,23 @@ def get_time_based_greeting():
         return "Good evening"
     return "Good night"
 
+import json
+
+def safe_json(data):
+    """Ensures safe JSON serialization to prevent errors."""
+    try:
+        return json.dumps(data)
+    except (TypeError, ValueError):
+        return json.dumps({})  # Returns an empty JSON object if serialization fails
+            # Create or update an Insight entry
 
 
 def process_message(message: str,username,session):
     """Main function to process user messages"""
+    username =username
+    session = session
     print ("Start")
+    print ("Details",username, session)
     # Find the latest uploaded file in the chat_attached (media) folder
 
     
@@ -182,7 +194,7 @@ def process_message(message: str,username,session):
             vector_store.add_documents(documents=all_splits)
             # retrieved_docs = vector_store.similarity_search(state["messages"][-1].content)
             retrieved_docs = vector_store.similarity_search(user_input)
-            print ("The Print the Message:Joor",state["messages"][-1].content)
+            print ("The Print the MessageJoor:",state["messages"][-1].content)
             return {"pdf_content": retrieved_docs}
         except Exception as e:
             print(f"Error loading PDF: {e}")
@@ -194,7 +206,7 @@ def process_message(message: str,username,session):
             tavily_search = TavilySearchResults(max_results=3)
             # search_docs = tavily_search.invoke(state["messages"][-1].content)
             search_docs = tavily_search.invoke(user_input)
-            
+            print ("Web: Response:", search_docs)
             if any(error in str(search_docs) for error in ["ConnectionError", "HTTPSConnectionPool"]):
                 return {"web_content": []}
                 
@@ -209,16 +221,15 @@ def process_message(message: str,username,session):
 
     def generate_response(state: State):
         """Generate structured response using context"""
-        print("--Generating Answer--")
         
         # Prepare context
         pdf_text = "\n".join(doc.page_content for doc in state["pdf_content"])
         web_text = "\n".join(state["web_content"])
         # print ("Anyagde:",state)
         query_answer=state["query_answer"]
-        print ("Ayo",query_answer)
+        # print ("Ayo",query_answer)
         context = f"PDF Content:\n{pdf_text}\n\nWeb Content:\n{web_text}\n\nQuery Answer:\n{query_answer}"
-        
+        print("--COntext Output--",context)
         # Prepare prompt template
         greeting = get_time_based_greeting()
         prompt1 = f"""
@@ -455,16 +466,13 @@ Summarize this conversation between Damilola (ATB Bank assistant) and a customer
                 "all_sources": []
             }
             
-            
-    
+
     def write_query(state: State):
         """Generate SQL query to fetch information."""
         # input= state["messages"][-1].content
         input= user_input
         user_prompt = "Question: {input}"
         
-     
-
         system_message = """
 Given an input question, create a syntactically correct {dialect} query to
 run to help find the answer. Unless the user specifies in his question a
@@ -513,33 +521,33 @@ Only use the following tables:
         print(f"Answer: {responseY.content}")
         return {"query_answer": responseY.content}
         # return {"query": result["query"], "result": resultT, "query_answer": responseY.content}
-        
+
+
     def prepare_final_output(state: State) -> dict:
         """Prepare the final output response with all conversation data.
-        
+
         Args:
             state: The current conversation state containing messages, answers, and summaries
-            
+
         Returns:
             dict: Contains the formatted response message and all metadata
         """
         try:
             # Extract the latest question and answer
-            # current_question = state["messages"][-1].content
             current_question = user_input
             initial_question = state["messages"][0].content
             answer_data = state["answer"]
-            
+
             # Create structured Answer object
-            print ("AGOBA Answer",Answer )
+            print("AGOBA Answer:", Answer)
             responseT = Answer(
-                response=answer_data.response,  # Changed from 'yeild' to 'response'
+                response=answer_data.response,  # Fixed 'yield' typo
                 sources=state.get("sources", []),
-                channels=state.get("channels", []),  # Changed from 'channel' to 'channels'
+                channels=state.get("channels", []),  # Fixed 'channel' typo
                 sentiment=state.get("sentiment", 0)
             )
-            print ("AGOBA",responseT )
-            # print ("IJEBU",responseT )
+            print("AGOBA:", responseT)
+
             # Prepare summary data
             summary_data = {
                 "question": initial_question,
@@ -552,68 +560,37 @@ Only use the following tables:
                 "overall_sentiment": state.get("msentiment", 0),
                 "all_sources": state.get("msources", [])
             }
-            # print ("UJEBU SUMMARY",summary_data )
- # For storing list of strings
-    
-            # For database storage (commented out as in original)
-            # from .models import Insight
-            # Insight.objects.create(
-            #         session_id=1,  # Consider using a dynamic session ID
-            #         sentimentAnswer=response.sentiment,
-            #         answer=response.response,  # Fixed typo from 'respose' to 'response'
-            #         source=json.dumps(response.sources),
-            #         ticket=json.dumps(response.channels),
-            #         summary=state.get("summary", ""),
-            #         sentiment=summary_data["overall_sentiment"],
-            #         # mchannel=json.dumps(summary_data["unresolved_channels"]),
-            #         # msources=json.dumps(summary_data["all_sources"]),
-            #         created_at=datetime.datetime.now(),
-            #         question=initial_question,
-            #         username=username
-            #     )
-            
-            
-            
-        
-            """Create a new insight if session_id doesn't exist, otherwise update the existing entry."""
-            session_id= session
+
+            session_id = session
+            print("Summary Date:", summary_data)
             insight, created = Insight.objects.get_or_create(session_id=session_id)
 
-                # Update only if the entry already exists
+            # Assign common fields
+            insight.sentimentAnswer = responseT.sentiment
+            insight.answer = responseT.response
+            insight.source = safe_json(responseT.sources)
+            insight.ticket = safe_json(responseT.channels)
+            insight.summary = state.get("summary", "")
+            insight.sentiment = summary_data["overall_sentiment"]
+            insight.question = initial_question
+            insight.user = username
+
+            # Handle timestamps
             if not created:
-                    insight.sentimentAnswer = responseT.sentiment
-                    insight.answer = responseT.response  # Fixed typo from 'respose' to 'response'
-                    insight.source = json.dumps(responseT.sources)
-                    insight.ticket = json.dumps(responseT.channels)
-                    insight.summary = state.get("summary", "")
-                    insight.sentiment = summary_data["overall_sentiment"]
-                    # insight.mchannel = json.dumps(summary_data["unresolved_channels"])
-                    # insight.msources = json.dumps(summary_data["all_sources"])
-                    insight.updated_at = datetime.datetime.now()  # Update timestamp
-                    insight.question = initial_question
-                    insight.username = username
-                    insight.save()
-                    # return f"Insight updated successfully for session {session_id}"
-
+                insight.updated_at = datetime.datetime.now()  # Updates timestamp only when modifying
             else:
-                    # Creating a new insight entry
-                    insight.sentimentAnswer = responseT.sentiment
-                    insight.answer = responseT.response
-                    insight.source = json.dumps(responseT.sources)
-                    insight.ticket = json.dumps(responseT.channels)
-                    insight.summary = state.get("summary", "")
-                    insight.sentiment = summary_data["overall_sentiment"]
-                    # insight.mchannel = json.dumps(summary_data["unresolved_channels"])
-                    # insight.msources = json.dumps(summary_data["all_sources"])
-                    insight.created_at = datetime.datetime.now()
-                    insight.question = initial_question
-                    insight.username = username
-                    insight.save()
+                insight.created_at = datetime.datetime.now()  # Sets timestamp for a new entry
 
-            print("Heloa ",responseT.response)
+            # Efficient database update
+            insight.save(update_fields=[
+                "sentimentAnswer", "answer", "source", "ticket",
+                "summary", "sentiment", "updated_at", "question", "user"
+            ] if not created else None)  # Avoid unnecessary updates on creation
+
+            print("Heloa:", responseT.response)
             return {
                 "messages": responseT.response,
-                "metadata": summary_data  # Include all structured data
+                "metadata": summary_data  # Include structured data
             }
 
         except KeyError as e:
@@ -622,6 +599,7 @@ Only use the following tables:
                 "messages": "I encountered an error processing your request.",
                 "metadata": {"error": str(e)}
             }
+
         except Exception as e:
             print(f"Unexpected error in prepare_final_output: {e}")
             return {
@@ -629,10 +607,7 @@ Only use the following tables:
                 "metadata": {"error": "Internal processing error"}
             }
 
-
-
-
-    # Setup workflow
+        # Setup workflow
     DB_URI = "postgresql://postgres:postgres-user-password@75.119.151.28:5432/postgres?connect_timeout=10"
     
     with PostgresSaver.from_conn_string(DB_URI) as memory:
@@ -1142,7 +1117,7 @@ Only use the following tables:
                     # insight.msources = json.dumps(summary_data["all_sources"])
                     insight.updated_at = datetime.datetime.now()  # Update timestamp
                     insight.question = initial_question
-                    insight.username = username
+                    insight.user = username
                     insight.save()
                     # return f"Insight updated successfully for session {session_id}"
 

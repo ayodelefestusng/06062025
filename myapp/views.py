@@ -672,8 +672,9 @@ def edit_currency(request):
 
 @login_required
 def oya(request):
-    insights = Insight.objects.all()
-    yemi = "yemi"
+    # insights = Insight.objects.all()
+    insights = "Insight.objects.all()"
+    yemi = insights
     context = {
         'insight': insights,
         'yemi': yemi,
@@ -691,6 +692,6 @@ def dashboard(request):
 
 
 def post_list(request):
-    posts = Post.objects.all()
+    posts = "Post.objects.all()"
     return render(request, 'post_list.html', {'posts': posts})
 

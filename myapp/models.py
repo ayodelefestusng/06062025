@@ -97,7 +97,8 @@ class Insight(models.Model):
     updated_at = models.DateTimeField(auto_now=True) 
     question = models.TextField(default="")
     # user = models.ForeignKey(User, on_delete=models.CASCADE)
-    user = models.ForeignKey(User, on_delete=models.CASCADE, default=User.objects.get(username='aulagigo').id)
+    # user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     # user = models.ForeignKey(User, on_delete=models.CASCADE)
     def __str__(self):
         return f"Insight {self.session_id}"
