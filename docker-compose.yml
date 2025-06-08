@@ -1,31 +1,58 @@
+version: '3.8' # Specify a newer version for better features
+
 services:
   web:
-    image: ayodelefestung/mydjangoapp:v2
+    # Use 'build .' if you want to build the image locally from the Dockerfile
+    # or 'image: ayodelefestung/mydjangoapp:v2' if you are pulling from a registry.
+    # For local development and testing changes, 'build .' is recommended.
+    build: .
+    # image: ayodelefestung/mydjangoapp:v2 # Uncomment and use this for production deployment after building and pushing
+
     restart: unless-stopped
-    env_file: .env
+    env_file: .env # Load environment variables from .env file
     environment:
       - DJANGO_SETTINGS_MODULE=myproject.settings
       - PYTHONUNBUFFERED=1
+      - PORT=8000 # Explicitly set PORT for local development to 8000.
+                  # Gunicorn will bind to 8000 inside the container.
     ports:
+      # Map host port 8000 to container port 8000
       - "8000:8000"
+      # Map host port 8080 to container port 8000
+      # This allows access via both 8000 and 8080 from your host.
+      - "8080:8000"
     volumes:
+      # Named volumes for persistent storage of static files and media
       - static_volume:/app/static_root
       - media_volume:/app/media
     depends_on:
+      # Ensure redis service starts before web
       - redis
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      # Container-level health check, matches the Dockerfile's health check logic
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"] # Local health check uses 8000
       interval: 30s
       timeout: 10s
       retries: 3
+    # Optional: networks if you have custom network configurations
+    # networks:
+    #   - my_app_network
 
   redis:
-    image: redis:7-alpine
+    image: redis:7-alpine # Lightweight Redis image
     restart: unless-stopped
     volumes:
-      - redis_data:/data
+      - redis_data:/data # Volume for Redis data persistence
+    # networks:
+    #   - my_app_network
 
+# Define named volumes for data persistence
 volumes:
   static_volume:
   media_volume:
   redis_data:
+
+# Optional: Define custom networks if needed
+# networks:
+#   my_app_network:
+#     driver: bridge

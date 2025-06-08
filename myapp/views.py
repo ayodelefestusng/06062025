@@ -672,9 +672,13 @@ def edit_currency(request):
 
 @login_required
 def oya(request):
-    # insights = Insight.objects.filter(user=request.user).order_by('-id')[:1]
     insights = Insight.objects.all()
-    return render(request, 'oya.html', {'insight': insights})
+    yemi = "yemi"
+    context = {
+        'insight': insights,
+        'yemi': yemi,
+    }
+    return render(request, 'oya.html', context)
 
 def oya1(request):
     insights = Insight.objects.all()

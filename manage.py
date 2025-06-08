@@ -19,4 +19,19 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'myproject.settings')
+
+    try:
+        from django.core.management import execute_from_command_line
+    except ImportError as exc:
+        raise ImportError(
+            "Couldn't import Django. Are you sure it's installed and "
+            "available on your PYTHONPATH environment variable? Did you "
+            "forget to activate a virtual environment?"
+        ) from exc
+
+    if len(sys.argv) == 1:  # Default command if none is provided
+        sys.argv.append('runserver')
+        sys.argv.append('0.0.0.0:8080')  # Explicitly bind to Cloud Run port
+
+    execute_from_command_line(sys.argv)
